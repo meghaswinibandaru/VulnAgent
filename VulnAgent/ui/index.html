@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Vuln Agent</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 700px; margin: 60px auto; padding: 20px; }
+    h2   { color: #1F3864; }
+    .drop-zone { border: 2px dashed #aaa; border-radius: 10px; padding: 40px;
+                 text-align: center; cursor: pointer; margin: 20px 0; color: #888; }
+    .drop-zone.active { border-color: #1F3864; background: #f0f4ff; color: #1F3864; }
+    .ip-checks label { margin-right: 16px; font-size: 14px; }
+    button { background: #1F3864; color: #fff; border: none; padding: 12px 28px;
+             border-radius: 6px; cursor: pointer; font-size: 15px; margin-top: 12px; }
+    #status { margin-top: 20px; font-size: 14px; }
+    a.download-btn { display: inline-block; margin-top: 12px; padding: 10px 24px;
+                     background: #2a7f4f; color: #fff; border-radius: 6px;
+                     text-decoration: none; }
+  </style>
+</head>
+<body>
+  <h2>🔍 Vulnerability Grouping Agent</h2>
+
+  <p>Select which server IPs to include:</p>
+  <div class="ip-checks">
+    <label><input type="checkbox" value="10.109" checked> 10.109.x.x</label>
+    <label><input type="checkbox" value="10.122" checked> 10.122.x.x</label>
+    <label><input type="checkbox" value="10.164"> 10.164.x.x</label>
+    <label><input type="checkbox" value="10.165"> 10.165.x.x</label>
+  </div>
+
+  <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+    Drag & drop your .xlsx here, or click to browse
+    <input type="file" id="fileInput" accept=".xlsx" hidden>
+  </div>
+
+  <button onclick="upload()">▶ Run Agent</button>
+  <div id="status"></div>
+
+  <script>
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    let selectedFile = null;
+
+    fi.onchange = e => { selectedFile = e.target.files[0]; dz.textContent = selectedFile.name; dz.classList.add('active'); };
+    dz.ondragover = e => { e.preventDefault(); dz.classList.add('active'); };
+    dz.ondrop = e => { e.preventDefault(); selectedFile = e.dataTransfer.files[0]; dz.textContent = selectedFile.name; };
+
+    async function upload() {
+      if (!selectedFile) { alert('Please select a file first.'); return; }
+      const ips = [...document.querySelectorAll('.ip-checks input:checked')].map(c => c.value);
+      if (!ips.length) { alert('Select at least one IP range.'); return; }
+
+      const form = new FormData();
+      form.append('file', selectedFile);
+      form.append('selected_ips', JSON.stringify(ips));
+
+      document.getElementById('status').innerHTML = '⏳ Processing...';
+      const res  = await fetch('/upload', { method: 'POST', body: form });
+      const data = await res.json();
+
+      document.getElementById('status').innerHTML =
+        `✅ Done! Rows filtered: <b>${data.summary.total_rows_after_filter}</b>,
+         Groups: <b>${data.summary.server_groups}</b>,
+         Shared solutions: <b>${data.summary.unique_solutions_shared}</b><br>
+         <a class="download-btn" href="${data.download_url}" download>⬇ Download Result</a>`;
+    }
+  </script>
+</body>
+</html>
